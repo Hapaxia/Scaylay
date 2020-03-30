@@ -1,2 +1,2 @@
-# Scalayout
+# Scaylay
 Scaling layout guide
