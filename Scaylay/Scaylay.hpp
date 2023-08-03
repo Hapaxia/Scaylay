@@ -51,6 +51,8 @@ public:
 		Property2 startOffset = { { 0.f, RelationType::Scale }, { 0.f, RelationType::Scale } },
 		bool isConsideredPoint = true,
 		int parentIndex = -1,
+		int groupId = 0,
+		int depth = 0,
 		Property2 endOffset = { { 0.f, RelationType::Scale }, { 0.f, RelationType::Scale } },
 		std::vector<Property> generics = {});
 	std::size_t addAbsoluteRectangle(Vector2 position = { 0.f, 0.f }, Vector2 size = { 0.f, 0.f });
@@ -64,6 +66,8 @@ public:
 	std::size_t getNumberOfGenerics() const;
 
 	void setParent(std::size_t index, int parentIndex);
+	void setGroup(std::size_t index, int groupId);
+	void setDepth(std::size_t index, int depth);
 	void setStartOffset(std::size_t index, Vector2 offset);
 	void setEndOffset(std::size_t index, Vector2 offset);
 
@@ -85,6 +89,8 @@ public:
 	void setGenericRelationType(std::size_t index, std::size_t genericIndex, RelationType relationType);
 
 	int getParent(std::size_t index) const;
+	int getGroup(std::size_t index) const;
+	int getDepth(std::size_t index) const;
 	Vector2 getStartOffset(std::size_t index) const;
 	Vector2 getEndOffset(std::size_t index) const;
 	float getGeneric(std::size_t index, std::size_t genericIndex) const;
@@ -107,7 +113,14 @@ public:
 	Vector2 getPointInFrame(std::size_t index, Vector2 point, RelationType relationType, AnchorPoint anchorPoint) const; // relation and anchor applies to both x and y components equally here
 	Vector2 getPointInFrame(std::size_t index, Vector2 point, Vector2Relation relations, Vector2Anchor anchors) const;
 
+	std::vector<std::size_t> getFramesInGroup(int groupId) const;
+	std::vector<std::size_t> getFramesInGroupRange(int groupIdMin, int groupIdMax, bool useInsideRange = true) const; // inside range is inclusive of limits (min/max); outside range is exclusve of limits.
+	std::vector<std::size_t> getFramesInGroups(const std::vector<int>& groupIds) const;
 
+	std::vector<std::size_t> getFramesAtDepth(int depth) const;
+	std::vector<std::size_t> getFramesInDepthRange(int depthMin, int depthMax, bool useInsideRange = true, bool sortAscending = true) const; // inside range is inclusive of limits (min/max); outside range is exclusve of limits.
+	std::vector<std::size_t> getFramesToDepth(int depth, bool useBelow = true, bool sortAscending = true) const; // inclusive of specified depth regardless of useBelow value
+	std::vector<std::size_t> getFramesAtAllDepths(bool sortAscending = true) const;
 
 
 
@@ -121,6 +134,8 @@ private:
 	{
 		bool isConsideredPoint;
 		int parentIndex;
+		int groupId;
+		int depth; // z-order
 		Property2 start;
 		Property2 end;
 		std::vector<Property> generics;
@@ -168,6 +183,22 @@ inline void Design::setParent(const std::size_t index, int parentIndex)
 	if (parentIndex < -1)
 		parentIndex = -1;
 	m_frames[index].parentIndex = parentIndex;
+}
+
+inline void Design::setGroup(const std::size_t index, const int groupId)
+{
+	if (!priv_isValidFrameIndex(index))
+		return;
+
+	m_frames[index].groupId = groupId;
+}
+
+inline void Design::setDepth(const std::size_t index, const int depth)
+{
+	if (!priv_isValidFrameIndex(index))
+		return;
+
+	m_frames[index].depth = depth;
 }
 
 inline void Design::setStartOffset(const std::size_t index, const Vector2 startOffset)
@@ -304,6 +335,22 @@ inline int Design::getParent(const std::size_t index) const
 		return -1;
 
 	return m_frames[index].parentIndex;
+}
+
+inline int Design::getGroup(const std::size_t index) const
+{
+	if (!priv_isValidFrameIndex(index))
+		return 0;
+
+	return m_frames[index].groupId;
+}
+
+inline int Design::getDepth(const std::size_t index) const
+{
+	if (!priv_isValidFrameIndex(index))
+		return 0;
+
+	return m_frames[index].depth;
 }
 
 inline Vector2 Design::getStartOffset(const std::size_t index) const
