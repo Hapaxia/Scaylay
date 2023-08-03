@@ -29,6 +29,8 @@
 
 #include "Scaylay.hpp"
 
+#include <algorithm> // for std::sort
+
 #include <string>
 #include <sstream>
 
@@ -68,31 +70,35 @@ std::string Design::getInfo()
 	std::string s;
 	for (auto& f : m_frames)
 	{
-		Vector2 size{ f.end.x.value - f.start.x.value, f.end.y.value - f.start.y.value };
+		Vector2 difference{ f.end.x.value - f.start.x.value, f.end.y.value - f.start.y.value };
 		s += "[" + std::to_string(i++) + "] ";
-		s += "parent:";
+		s += "prnt:";
 		s += std::to_string(f.parentIndex);
-		s += " || start: ";
+		s += " || grp: ";
+		s += std::to_string(f.groupId);
+		s += " || dth: ";
+		s += std::to_string(f.depth);
+		s += " || st: ";
 		s += stringFrom(f.start, ", ", 2u);
-		s += " {relation: ";
+		s += " {rel: ";
 		s += stringFrom({ f.start.x.relation, f.start.y.relation }, ", ");
 		s += "}";
-		s += " {anchor: ";
+		s += " {anc: ";
 		s += stringFrom({ f.start.x.anchor, f.start.y.anchor }, ", ");
 		s += "}";
-		s += " || end: ";
+		s += " || nd: ";
 		s += stringFrom(f.end, ", ", 2u);
-		s += " {relation: ";
+		s += " {rel: ";
 		s += stringFrom({ f.end.x.relation, f.end.y.relation }, ", ");
 		s += "}";
-		s += " {anchor: ";
+		s += " {anc: ";
 		s += stringFrom({ f.end.x.anchor, f.end.y.anchor }, ", ");
 		s += "}";
-		s += " || size: ";
-		s += stringFrom(size, "x", 2u);
+		s += " || df: ";
+		s += stringFrom(difference, "x", 2u);
 		for (std::size_t g{ 0u }; g < getNumberOfGenerics(); ++g)
 		{
-			s += " || generic[" + std::to_string(g) + "]: ";
+			s += " || gen[" + std::to_string(g) + "]: ";
 			s += std::to_string(f.generics[g].value);
 		}
 		s += "\n";
@@ -113,6 +119,8 @@ std::size_t Design::add(
 	const Property2 startOffset,
 	const bool isConsideredPoint,
 	const int parentIndex,
+	const int groupId,
+	const int depth,
 	const Property2 endOffset,
 	const std::vector<Property> generics)
 {
@@ -120,6 +128,8 @@ std::size_t Design::add(
 	m_frames.emplace_back(Frame{
 		isConsideredPoint,
 		parentIndex,
+		groupId,
+		depth,
 		startOffset,
 		endOffset,
 		generics });
@@ -137,6 +147,8 @@ std::size_t Design::addAbsoluteRectangle(const Vector2 position, const Vector2 s
 	return add(Property2{ position, { RelationType::Absolute, RelationType::Absolute }, { AnchorPoint::Start, AnchorPoint::Start } },
 		false,
 		-1,
+		0,
+		0,
 		Property2{ { position.x + size.x, position.y + size.y }, { RelationType::Absolute, RelationType::Absolute }, { AnchorPoint::Start, AnchorPoint::Start } });
 }
 
@@ -145,7 +157,146 @@ std::size_t Design::addRelativeRectangle(const std::size_t parentIndex, const Ve
 	return add(Property2{ position, { RelationType::Relative, RelationType::Relative }, { AnchorPoint::Start, AnchorPoint::Start } },
 		false,
 		static_cast<int>(parentIndex),
+		0,
+		0,
 		Property2{ { position.x + size.x, position.y + size.y }, { RelationType::Relative, RelationType::Relative }, { AnchorPoint::Start, AnchorPoint::Start } });
+}
+
+std::vector<std::size_t> Design::getFramesInGroup(const int groupId) const
+{
+	std::vector<std::size_t> frames;
+
+	const std::size_t framesSize{ m_frames.size() };
+	for (std::size_t i{ 0u }; i < framesSize; ++i)
+	{
+		if (m_frames[i].groupId == groupId)
+			frames.push_back(i);
+	}
+
+	return frames;
+}
+
+std::vector<std::size_t> Design::getFramesInGroupRange(const int groupIdMin, const int groupIdMax, const bool useInsideRange) const
+{
+	std::vector<std::size_t> frames;
+
+	const std::size_t framesSize{ m_frames.size() };
+	for (std::size_t i{ 0u }; i < framesSize; ++i)
+	{
+		if (useInsideRange == (m_frames[i].groupId >= groupIdMin) && (m_frames[i].groupId <= groupIdMax))
+			frames.push_back(i);
+	}
+
+	return frames;
+}
+
+std::vector<std::size_t> Design::getFramesInGroups(const std::vector<int>& groupIds) const
+{
+	std::vector<std::size_t> frames;
+
+	const std::size_t framesSize{ m_frames.size() };
+	for (std::size_t i{ 0u }; i < framesSize; ++i)
+	{
+		for (auto& groupId : groupIds)
+		{
+			if (m_frames[i].groupId == groupId)
+				frames.push_back(i);
+		}
+	}
+
+	return frames;
+}
+
+std::vector<std::size_t> Design::getFramesAtDepth(const int depth) const
+{
+	std::vector<std::size_t> frames;
+
+	const std::size_t framesSize{ m_frames.size() };
+	for (std::size_t i{ 0u }; i < framesSize; ++i)
+	{
+		if (m_frames[i].depth == depth)
+			frames.push_back(i);
+	}
+
+	return frames;
+}
+
+std::vector<std::size_t> Design::getFramesInDepthRange(const int depthMin, const int depthMax, const bool useInsideRange, const bool sortAscending) const
+{
+	std::vector<std::size_t> frames;
+
+	const std::size_t framesSize{ m_frames.size() };
+	for (std::size_t i{ 0u }; i < framesSize; ++i)
+	{
+		if (useInsideRange == (m_frames[i].groupId >= depthMin) && (m_frames[i].groupId <= depthMax))
+			frames.push_back(i);
+	}
+
+	auto depthSortFunction = [&](std::size_t lhs, std::size_t rhs)
+	{
+		if (m_frames[lhs].depth == m_frames[rhs].depth)
+			return sortAscending == (lhs < rhs);
+		else
+			return m_frames[lhs].depth < m_frames[rhs].depth;
+	};
+
+	if (sortAscending)
+		std::sort(frames.begin(), frames.end(), depthSortFunction);
+	else
+		std::sort(frames.rbegin(), frames.rend(), depthSortFunction);
+
+	return frames;
+}
+
+std::vector<std::size_t> Design::getFramesToDepth(const int depth, const bool useBelow, const bool sortAscending) const
+{
+	std::vector<std::size_t> frames;
+
+	const std::size_t framesSize{ m_frames.size() };
+	for (std::size_t i{ 0u }; i < framesSize; ++i)
+	{
+		if ((m_frames[i].depth == depth) || (useBelow == (m_frames[i].depth < depth)))
+			frames.push_back(i);
+	}
+
+	auto depthSortFunction = [&](std::size_t lhs, std::size_t rhs)
+	{
+		if (m_frames[lhs].depth == m_frames[rhs].depth)
+			return sortAscending == (lhs < rhs);
+		else
+			return m_frames[lhs].depth < m_frames[rhs].depth;
+	};
+
+	if (sortAscending)
+		std::sort(frames.begin(), frames.end(), depthSortFunction);
+	else
+		std::sort(frames.rbegin(), frames.rend(), depthSortFunction);
+
+	return frames;
+}
+
+std::vector<std::size_t> Design::getFramesAtAllDepths(const bool sortAscending) const
+{
+	std::vector<std::size_t> frames(m_frames.size());
+
+	const std::size_t framesSize{ m_frames.size() };
+	for (std::size_t i{ 0u }; i < framesSize; ++i)
+		frames[i] = i;
+
+	auto depthSortFunction = [&](std::size_t lhs, std::size_t rhs)
+	{
+		if (m_frames[lhs].depth == m_frames[rhs].depth)
+			return sortAscending == (lhs < rhs);
+		else
+			return m_frames[lhs].depth < m_frames[rhs].depth;
+	};
+
+	if (sortAscending)
+		std::sort(frames.begin(), frames.end(), depthSortFunction);
+	else
+		std::sort(frames.rbegin(), frames.rend(), depthSortFunction);
+
+	return frames;
 }
 
 
