@@ -38,7 +38,7 @@
 namespace scaylay
 {
 
-// Scaylay Design v0.1.0
+// Scaylay Design v0.2.0
 class Design
 {
 public:
